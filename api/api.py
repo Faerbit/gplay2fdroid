@@ -65,7 +65,10 @@ class GooglePlayAPI():
         req.version = 3
         #req.fragment = 0
         req.deviceConfiguration.hasFiveWayNavigation = False
-        req.deviceConfiguration.glEsVersion = 131072
         # important TODO: make configurable
+        higher_gl_number = 3
+        lower_gl_number = 0
+        req.deviceConfiguration.glEsVersion = int(
+                format(higher_gl_number, "04x") + format(0,"04x"), 16)
         req.checkin.build.sdkVersion = 23
         return req
