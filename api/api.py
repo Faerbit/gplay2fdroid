@@ -14,7 +14,6 @@ class GooglePlayAPI():
     def checkin(self):
         """Posts a Android Checkin"""
         headers = dict()
-        headers["User-Agent"] = "Android-Checkin/2.0 (generic JRO03E); gzip"
         headers["Host"] = "android.clients.google.com"
         headers["Content-Type"] = "application/x-protobuffer"
         resp = requests.post(self.CHECKIN_URL,
@@ -61,8 +60,8 @@ class GooglePlayAPI():
         #    .extend(["armeabi-v7l", "armeabi"]))
         #req.deviceConfiguration.screenWidth = 1080
         #req.deviceConfiguration.screenHeight = 1920
-        req.locale="en_US"
-        req.timeZone = "Europe/Berlin"
+        #req.locale="en_US"
+        #req.timeZone = "Europe/Berlin"
         req.version = 3
         #req.fragment = 0
         req.deviceConfiguration.hasFiveWayNavigation = False
