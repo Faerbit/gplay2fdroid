@@ -10,6 +10,7 @@ class GooglePlayAPI():
 
     BASE_URL = "https://android.clients.google.com/"
     CHECKIN_URL = BASE_URL + "checkin"
+    LOGIN_URL = BASE_URL + "auth"
 
     def checkin(self):
         """Posts a Android Checkin"""
@@ -19,14 +20,49 @@ class GooglePlayAPI():
         resp = requests.post(self.CHECKIN_URL,
                 data = self._generate_checkin_request().SerializeToString(),
                 headers=headers)
-        if resp.status_code != 200:
-            print("ERROR: Response body:\n {}"
-                    .format(resp.content.decode("utf-8")))
-            return None
-        else:
+        if resp.status_code == 200:
             and_resp = gplay.AndroidCheckinResponse().FromString(resp.content)
             print(and_resp)
             return and_resp
+        else:
+            print("ERROR: Response body:\n {}"
+                    .format(resp.content.decode("utf-8")))
+            return None
+
+    def login(self):
+        # TODO persist to HDD
+        android_id = self.checkin().androidId
+        # TODO make configurable
+        email = "fdroidserver@gmail.com"
+        password = "jesuischarlie1"
+        data = dict()
+        data["Email"] = email
+        data["Passwd"] = password
+        data["service"] = "androidmarket"
+        data["accountType"] =  "HOSTED_OR_GOOGLE"
+        data["has_permission"] = 1
+        data["source"] = "android"
+        data["androidId"] = android_id
+        data["app"] = "com.android.vending"
+        data["device_country"] = "en"
+        data["lang"] = "en"
+        # TODO make configurable
+        data["sdk_version"] = 23
+        resp = requests.post(self.LOGIN_URL, data=data)
+        authToken = ""
+        for line in resp.content.splitlines():
+            line = line.decode("utf-8")
+            if "Auth" in line:
+                authToken = line.split("=")[1]
+        if authToken:
+            return authToken
+        else:
+            print("ERROR: Response body:\n{}"
+                    .format(resp.content.decode("utf-8")))
+            return None
+
+            
+
 
 
     def _generate_checkin_request(self):
