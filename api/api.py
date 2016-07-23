@@ -1,5 +1,6 @@
 
 from time import time
+from configobj import ConfigObj
 from google.protobuf import descriptor
 
 import requests
@@ -12,6 +13,23 @@ class GooglePlayAPI():
     CHECKIN_URL = BASE_URL + "checkin"
     LOGIN_URL = BASE_URL + "auth"
 
+    def __init__(self, config_file = "default.ini"):
+        self.config = ConfigObj(config_file)
+        self.email = self.config["GPlay"]["Email"]
+        self.password = self.config["GPlay"]["Password"]
+        if self.config["GPlay"]["AndroidId"]:
+            self._androidId = int(self.config["GPlay"]["AndroidId"])
+        else:
+            self._androidId = None
+        self.sdkVersion = int(self.config["GPlay"]["SdkVersion"])
+        self.higherOpenGLVersion = (
+            int((self.config["GPlay"]["OpenGLVersion"]).split(".")[0]))
+        self.lowerOpenGLVersion = (
+            int((self.config["GPlay"]["OpenGLVersion"]).split(".")[1]))
+        self.country = self.config["GPlay"]["Country"]
+        self.lang = self.config["GPlay"]["Language"]
+
+
     def checkin(self):
         """Posts a Android Checkin"""
         headers = dict()
@@ -22,48 +40,52 @@ class GooglePlayAPI():
                 headers=headers)
         if resp.status_code == 200:
             and_resp = gplay.AndroidCheckinResponse().FromString(resp.content)
-            print(and_resp)
+            print("Got Android ID: {}".format(and_resp.androidId))
             return and_resp
         else:
-            print("ERROR: Response body:\n {}"
+            print("ERROR during Checkin: Response body:\n {}"
                     .format(resp.content.decode("utf-8")))
             return None
 
+    def androidId(self):
+        """
+        Returns the android id from config if available. Otherwise posts a
+        checkin and saves the aquired android id.
+        """
+        if self._androidId:
+            return self._androidId
+        else:
+            self._androidId = int(self.checkin().androidId)
+            self.config["GPlay"]["AndroidId"] = str(self._androidId)
+            self.config.write()
+            return self._androidId
+
+
     def login(self):
-        # TODO persist to HDD
-        android_id = self.checkin().androidId
-        # TODO make configurable
-        email = "fdroidserver@gmail.com"
-        password = "jesuischarlie1"
         data = dict()
-        data["Email"] = email
-        data["Passwd"] = password
+        data["Email"] = self.email
+        data["Passwd"] = self.password
         data["service"] = "androidmarket"
-        data["accountType"] =  "HOSTED_OR_GOOGLE"
-        data["has_permission"] = 1
-        data["source"] = "android"
-        data["androidId"] = android_id
+        #data["accountType"] =  "HOSTED_OR_GOOGLE"
+        #data["has_permission"] = 1
+        #data["source"] = "android"
+        data["androidId"] = self.androidId()
         data["app"] = "com.android.vending"
-        data["device_country"] = "en"
-        data["lang"] = "en"
-        # TODO make configurable
-        data["sdk_version"] = 23
+        data["device_country"] = self.country
+        data["lang"] = self.lang
+        data["sdk_version"] = self.sdkVersion
         resp = requests.post(self.LOGIN_URL, data=data)
         authToken = ""
         for line in resp.content.splitlines():
             line = line.decode("utf-8")
-            if "Auth" in line:
+            if "Auth=" in line:
                 authToken = line.split("=")[1]
         if authToken:
             return authToken
         else:
-            print("ERROR: Response body:\n{}"
+            print("ERROR during Login: Response body:\n{}"
                     .format(resp.content.decode("utf-8")))
             return None
-
-            
-
-
 
     def _generate_checkin_request(self):
         """Generates a AndroidCheckinRequest for a Oneplus One"""
@@ -101,10 +123,8 @@ class GooglePlayAPI():
         req.version = 3
         #req.fragment = 0
         req.deviceConfiguration.hasFiveWayNavigation = False
-        # important TODO: make configurable
-        higher_gl_number = 3
-        lower_gl_number = 0
         req.deviceConfiguration.glEsVersion = int(
-                format(higher_gl_number, "04x") + format(0,"04x"), 16)
-        req.checkin.build.sdkVersion = 23
+                format(self.higherOpenGLVersion, "04x")
+                + format(self.lowerOpenGLVersion,"04x"), 16)
+        req.checkin.build.sdkVersion = self.sdkVersion
         return req
