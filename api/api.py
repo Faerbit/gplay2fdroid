@@ -1,5 +1,5 @@
 
-from time import time
+from time import time, sleep
 from configobj import ConfigObj
 from google.protobuf import descriptor
 
@@ -12,6 +12,7 @@ class GooglePlayAPI():
     BASE_URL = "https://android.clients.google.com/"
     CHECKIN_URL = BASE_URL + "checkin"
     LOGIN_URL = BASE_URL + "auth"
+    SEARCH_URL = BASE_URL + "fdfe/search"
 
     def __init__(self, config_file = "default.ini"):
         self.config = ConfigObj(config_file)
@@ -29,6 +30,14 @@ class GooglePlayAPI():
         self.country = self.config["GPlay"]["Country"]
         self.lang = self.config["GPlay"]["Language"]
 
+    def search(self, query):
+        data = dict()
+        data["c"] = 3
+        data["q"] = query
+        data["o"] = "0"
+        data["n"] = "10"
+        resp = self._executeGET(self.SEARCH_URL, data)
+        print(resp)
 
     def checkin(self):
         """Posts a Android Checkin"""
@@ -45,7 +54,7 @@ class GooglePlayAPI():
         else:
             print("ERROR during Checkin: Response body:\n {}"
                     .format(resp.content.decode("utf-8")))
-            return None
+            exit(1)
 
     def androidId(self):
         """
@@ -62,6 +71,7 @@ class GooglePlayAPI():
 
 
     def login(self):
+        """Logs user in"""
         data = dict()
         data["Email"] = self.email
         data["Passwd"] = self.password
@@ -79,13 +89,53 @@ class GooglePlayAPI():
         for line in resp.content.splitlines():
             line = line.decode("utf-8")
             if "Auth=" in line:
-                authToken = line.split("=")[1]
+                authToken = line.split("=")[1].strip()
+        #print(resp.content.decode("utf-8"))
         if authToken:
-            return authToken
+            print("Got auth token: {}".format(authToken))
+            self.authToken = authToken
         else:
             print("ERROR during Login: Response body:\n{}"
                     .format(resp.content.decode("utf-8")))
-            return None
+            exit(1)
+
+    def _executeGET(self, url, params):
+        resp = requests.get(url, headers=self._get_headers(), 
+            params=params)
+        if resp.status_code == 200:
+            return gplay.ResponseWrapper().FromString(resp.content)
+        else:
+            print("ERROR: URL: {}\nResponse body:\n{}".format(
+                resp.url, gplay.ResponseWrapper().FromString(resp.content)))
+            #print(gplay.ResponseWrapper().FromString(resp.content))
+
+
+    def _get_headers(self):
+        headers = dict()
+        if not hasattr(self, "authToken"):
+            self.login()
+        headers["Authorization"] = "GoogleLogin auth={}".format(self.authToken)
+        headers["X-DFE-Device-Id"] = str(self.androidId)
+        #headers["X-DFE-Client-Id"] = "am-android-google"
+        #headers["Host"] = "android.clients.google.com"
+        #headers["X-DFE-Filter-Level"] = "3"
+        #headers["X-DFE-SmallesScreenWidthDp"] = "320"
+        #headers["Content-Type"] = (
+        #        "application/x-ww-form-urlencoded; charset=UTF-8")
+        #headers["X-DFE-Enabled-Experiments"] = (
+        #    "cl:billing.select_add_instrument_by_default")
+        #headers["X-DFE-Unsupported-Experiments"] = (
+        #    "nocache:bulling.use_charging_poller,market_emails,"
+        #    "buyer_currency,prod_baseline,checkin.set_asset_paid_app_field,"
+        #    "shekel_test,content_ratings,buyer_currency_in_app,"
+        #    "nocache:encrypted_apk,recent_changes")
+        #headers["User-Agent"] = "Android-Finksy"
+        #headers["User-Agent"] = "Android-Finsky/6.5.08.D-all (versionCode=80650800,sdk=23,device=noblelte,hardware=noblelte,product=noblelte,build=MMB29K:user)"
+        #headers["Accept-Language"] = ("{}-{}"
+        #    .format(self.lang, self.country.upper()))
+        #headers["Accept-Language"] = "en-EN"
+        return headers
+
 
     def _generate_checkin_request(self):
         """Generates a AndroidCheckinRequest for a Oneplus One"""
