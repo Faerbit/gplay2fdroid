@@ -58,58 +58,13 @@ class GooglePlayAPI():
         resp = self.sess.post(self.CHECKIN_URL,
                 data = self._generate_checkin_request().SerializeToString(),
                 headers=headers)
-        #if resp.status_code == 200:
-        #    and_resp = gplay.AndroidCheckinResponse().FromString(resp.content)
-        #else:
-        #    print("ERROR during first checkin: Response body:\n {}"
-        #            .format(resp.content.decode("utf-8")))
-        #    exit(1)
-        #ac2dm_auth = self._login_ac2dm()
-        #android_id = and_resp.androidId
-        #secToken = and_resp.securityToken
-        #second_checkin = self._generate_checkin_request()
-        #second_checkin.id = android_id
-        #second_checkin.securityToken = secToken
-        #second_checkin.accountCookie.append("[{}]".format(self.email))
-        #second_checkin.accountCookie.append("{}".format(ac2dm_auth))
-        #resp = self.sess.post(self.CHECKIN_URL,
-        #        data = second_checkin.SerializeToString(),
-        #        headers=headers)
         if resp.status_code == 200:
             and_resp = gplay.AndroidCheckinResponse().FromString(resp.content)
             and_id = hex(and_resp.androidId)[2:]
             print("Got Android ID: {}".format(and_id))
             return and_id
         else:
-            print("ERROR during second checkin: Response body:\n {}"
-                    .format(resp.content.decode("utf-8")))
-            exit(1)
-
-    def _login_ac2dm(self):
-        """Logs user into AC2DM"""
-        data = dict()
-        data["Email"] = self.email
-        data["Passwd"] = self.password
-        data["service"] = "ac2dm"
-        #data["accountType"] =  "HOSTED_OR_GOOGLE"
-        #data["has_permission"] = 1
-        #data["source"] = "android"
-        #data["androidId"] = self.androidId()
-        data["app"] = "com.android.vending"
-        data["device_country"] = self.country
-        data["lang"] = self.lang
-        data["sdk_version"] = self.sdkVersion
-        resp = self.sess.post(self.LOGIN_URL, data=data)
-        authToken = ""
-        for line in resp.content.splitlines():
-            line = line.decode("utf-8")
-            if "Auth=" in line:
-                authToken = line.split("=")[1].strip()
-        if authToken:
-            print("Got AC2DM auth token: {}".format(authToken))
-            self.authToken = authToken
-        else:
-            print("ERROR during AC2DM Login: Response body:\n{}"
+            print("ERROR during checkin: Response body:\n {}"
                     .format(resp.content.decode("utf-8")))
             exit(1)
 
@@ -125,7 +80,6 @@ class GooglePlayAPI():
             self.config["GPlay"]["AndroidId"] = self._androidId
             self.config.write()
             return self._androidId
-
 
     def login(self):
         """Logs user in"""
